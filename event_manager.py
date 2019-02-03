@@ -8,6 +8,8 @@ from  person_manager import personManager
 from addr_manager import addrManager
 from time_manager import timeManager
 from relation2type import getRelTypes
+import threading
+import time
 
 class EventManager(object):
 	"""docstring for Event_Extract"""
@@ -21,22 +23,50 @@ class EventManager(object):
 		self.is_sort = False
 		# self.trigger_manager =EventTriggerManager()
 
-	def getAll(self, get_times = 100):
+	def getAll(self, get_times = 30):
 		if not self.is_all:	
+			threading_array = []
 			has1 = has2 = has3 = has4 = True
+			threading_array = []
 			for times in range(0,get_times):
-				if has1:
-					has1 = eventManager.loadRelationEvents(LIMIT = 10000,SKIP = 10000*times)   #person_id=3767 苏轼
-				if has2:
-					has2 = eventManager.loadPostOfficeEvents(LIMIT = 10000,SKIP = 10000*times)
-				if has3:
-					has3 = eventManager.loadTextEvents(LIMIT = 10000,SKIP = 10000*times)
-				if has4:
-					has4 = eventManager.loadEntryEvents(LIMIT = 10000,SKIP = 10000*times)
-				if not has1  and not has2 and not has3 and not has4:
-					break
+				t1= threading.Thread(target=self.loadRelationEvents,args=(10000,10000*times, None))
+				# t2= threading.Thread(target=self.loadPostOfficeEvents,args=(10000,10000*times, None))
+				t3= threading.Thread(target=self.loadTextEvents,args=(10000,10000*times, None))
+				# t4= threading.Thread(target=self.loadEntryEvents,args=(10000,10000*times, None))
+				t5= threading.Thread(target=self.loadAddrEvents,args=(10000,10000*times, None))
+
+				t1.start()
+				time.sleep(0.1)
+				threading_array.append(t1)
+				# t2.start()
+				# time.sleep(0.1)
+				t3.start()
+				time.sleep(0.1)
+				# t4.start()
+				# time.sleep(1)
+				t5.start()
+				# threading_array.append(t2)
+				threading_array.append(t3)
+				# threading_array.append(t4)
+				threading_array.append(t5)
+				t1.join()
+				t3.join()
+				t5.join()
+				# if has1:
+				# 	has1 = eventManager.loadRelationEvents(LIMIT = 10000,SKIP = 10000*times)   #person_id=3767 苏轼
+				# if has2:
+				# 	has2 = eventManager.loadPostOfficeEvents(LIMIT = 10000,SKIP = 10000*times)
+				# if has3:
+				# 	has3 = eventManager.loadTextEvents(LIMIT = 10000,SKIP = 10000*times)
+				# if has4:
+				# 	has4 = eventManager.loadEntryEvents(LIMIT = 10000,SKIP = 10000*times)
+				# if not has1  and not has2 and not has3 and not has4:
+				# 	break
+			# for t in threading_array:
+			# 	t.join()
+			# time.sleep(10)
 		# 之后不需要再重新爬取了
-		if get_times == 100:
+		if True:  # get_times == 100:
 			self.is_all = True
 			for person in personManager.person_array:
 				person.has_all_events = True
@@ -458,7 +488,9 @@ class EventManager(object):
 		for result in results:
 			method =  result['method']
 			event_id = str(result['id(event)'])
-			self.createEvents(event_id).setTrigger('入仕 '+str(method))
+			self.createEvents(event_id).setTrigger('入仕')
+			self.createEvents(event_id).detail = str(method)
+			# self.createEvents(event_id).setTrigger(str(method))
 		print('加载入仕方式')
 
 		# 相关机构
@@ -487,31 +519,37 @@ class Event(object):
 	def __init__(self, event_id):
 		self.id = event_id
 		self.time_range = [-9999, 9999]
-		self.type = None  #类型
+		self.type = None  #类型,没啥用，以后以trigger为主
 		self.trigger = None  #触发词
 		self.is_state = False
 		self.roles = []  #{person: , role:}   
-		self.addr = None
+		self.addrs = []  #将原先的单一地址改为了多地址
 		self.sequence = 10
 		self.related_nodes = {}
 		self.setTrigger('未知')
 		self.detail = ''
 
-	def setAddr(self, addr):
-		if self.addr is None or self.addr.isParent(addr):
-			self.addr = addr
-			# print(str(addr), addr.time_range)
-			# self.addTimeAndRange(addr.time_range[0], '之前')
-			# self.addTimeAndRange(addr.time_range[1], '之后')
-		else:
-			# 需要判断大小然后操作
-			print('重复给事件添加地址')
-			pass
+	def setAddr(self, new_addr):
+		if new_addr not in self.addrs:
+			self.addrs.append(new_addr)
+
+		# if self.addr is None or self.addr.isParent(addr):
+		# 	self.addr = addr
+		# 	# print(str(addr), addr.time_range)
+		# 	# self.addTimeAndRange(addr.time_range[0], '之前')
+		# 	# self.addTimeAndRange(addr.time_range[1], '之后')
+		# else:
+		# 	# 需要判断大小然后操作
+		# 	print('重复给事件添加地址')
+		# 	pass
 
 	def addRelatedNodes(self, node):
 		self.related_tables.add(node)
 
 	def addTimeAndRange(self, year, range_code):
+		if year == -1:
+			return
+
 		# print(year)
 		if self.time_range[0]==self.time_range[1]:
 			return
@@ -576,7 +614,11 @@ class Event(object):
 		self.trigger = trigger
 
 	def __str__(self):
-		string = '[(事件) id:{}, 时间:{}, 地点:{}, 类型:{}, 触发词:{}, 角色: {}]'.format(str(self.id), str(self.time_range), str(self.addr), str(self.type), str(self.trigger), str(','.join([ '【{}/{}】'.format(elm['person'], elm['role'])    for elm in self.roles])))
+		string = '[(事件) id:{}, 时间:{}, 地点:{}, 类型:{}, 触发词:{}, 角色: {}]'.format(
+			str(self.id), str(self.time_range),
+			'[' + ','.join([str(addr) for addr in self.addrs]) + ']', 
+			str(self.type), str(self.trigger), 
+			str(','.join([ '【{}/{}】'.format(elm['person'], elm['role']) for elm in self.roles])))
 		return string
 
 	def __hash__(self):
@@ -584,22 +626,36 @@ class Event(object):
 
 	def toDict(self):
 		trigger = None
-		addr = None
+		addrs = []
 		if self.trigger is not None:
-			trigger = self.trigger.toDict()
-			
-		if self.addr is not None:
-			addr = self.addr.id
+			trigger = self.trigger
+		else:
+			trigger = triggerManager.createTrigger('未知')
+		if self.addrs is not None:
+			addrs = self.addrs
 
 		return {
 			'id': self.id,
 			'time_range': self.time_range,
-			'trigger': trigger,
-			'addr': addr,
+			'trigger': trigger.id,
+			'addr': [addr.id for addr in addrs],
 			'roles': [{'person': elm['person'].id, 'role': elm['role']}  for elm in self.roles],
-			'detail': self.detail
+			'detail': self.detail,
+			'sequence' : self.sequence
 			# 'is_state': self.is_state
 		}
+
+
+
+
+
+
+
+
+
+
+
+
 
 # 管理触发词的分类计算
 class EventTriggerManager(object):
@@ -607,7 +663,13 @@ class EventTriggerManager(object):
 	def __init__(self):
 		self.name2trigger = {}
 		# self.triggers = []   #Trigger
-		self.relationship_cat = self._getRelationshipCat()
+		# self.relationship_cat = self._getRelationshipCat()   #暂时没有用到
+		self.trigger_set = set()
+
+		self.now_id = 0
+
+		self.trigger2type_score = json.loads(open('./data/relation_code2type.json', 'r', encoding='utf-8').read())
+
 
 	def getTriggerType(self, trigger_name):
 		if trigger_name in self.name2trigger.keys():
@@ -618,52 +680,62 @@ class EventTriggerManager(object):
 	def set_trigger_type(self, trigger, type = None):
 		if type is not None:
 			trigger.type = type
-		else:
-			# 进行一系列计算 
-			if trigger.name in self.relationship_cat.keys():
-				trigger.type = self.relationship_cat[trigger.name]
-			else:
-				trigger.type = '其他'
+		elif trigger.name in self.trigger2type_score:
+				item = self.trigger2type_score[trigger.name ]
+				trigger.parent_type = item['parent_type']
+				trigger.type = item['type']
+				trigger.score = item['score']
+		# else:
+		# 	print(str(trigger.name) + '不存在评分和类型')
+
+			# # 进行一系列计算 
+			# if trigger.name in self.relationship_cat.keys():
+			# 	trigger.type = self.relationship_cat[trigger.name]
+			# else:
+			# 	trigger.type = '其他'
 				
 	def createTrigger(self, trigger_name):
-		if trigger_name in self.name2trigger.keys():
+		if trigger_name in self.trigger_set:
 			return self.name2trigger[trigger_name]
 		else:
 			new_trigger = Trigger(trigger_name)
 			self.name2trigger[trigger_name] = new_trigger
+			new_trigger.id = str(self.now_id) + 'trigger'
+			self.now_id += 1
+			self.trigger_set.add(trigger_name)
 			self.set_trigger_type(new_trigger)
 			return new_trigger
 
-	# 加载关系对应事件类别
-	def _getRelationshipCat(self):
-		rows = open(r'./db_info/关系分类.csv', 'r', encoding='utf-8').read().strip('\n').split('\n')
-		relationship_cat = {}
+	# # 加载关系对应事件类别
+	# def _getRelationshipCat(self):
+	# 	rows = open(r'./db_info/关系分类.csv', 'r', encoding='utf-8').read().strip('\n').split('\n')
+	# 	relationship_cat = {}
 
-		for row in rows:
-			columns = row.split(',')
-			columns = [column for column in columns if column!='']
+	# 	for row in rows:
+	# 		columns = row.split(',')
+	# 		columns = [column for column in columns if column!='']
 
-			is_state = False
-			if columns[0]=='事件关系':
-				is_state = False
-			elif columns[0]=='状态关系':
-				is_state = True
-			else:
-				print('event_extractor:{}不符合'.format(columns[0]))
+	# 		is_state = False   #暂时没有用到
+	# 		if columns[0]=='事件关系':
+	# 			is_state = False
+	# 		elif columns[0]=='状态关系':
+	# 			is_state = True
+	# 		else:
+	# 			print('event_extractor:{}不符合'.format(columns[0]))
 
-			event_type = columns[1]
-			if event_type=='交游关系':
-				event_type = '其它关系'
-			elif event_type=='附属关系':
-				event_type = '政治关系'
-			elif event_type=='师承关系':
-				event_type = '文学关系'
-			elif event_type not in ['亲属关系','文学关系','其它关系','政治关系']:
-				print('event_extractor:' + event_type + '不属于任何分类')
+	# 		event_type = columns[1]
+	# 		if event_type=='交游关系':
+	# 			event_type = '其它关系'
+	# 		elif event_type=='附属关系':
+	# 			event_type = '政治关系'
+	# 		elif event_type=='师承关系':
+	# 			event_type = '文学关系'
+	# 		elif event_type not in ['亲属关系','文学关系','其它关系','政治关系']:
+	# 			print('event_extractor:' + event_type + '不属于任何分类')
 
-			for column in columns[2:]:
-				relationship_cat[column] = {'is_state':is_state, 'event_type':event_type}
-		return relationship_cat
+	# 		for column in columns[2:]:
+	# 			relationship_cat[column] = {'is_state':is_state, 'event_type':event_type}
+	# 	return relationship_cat
 
 
 		
@@ -672,6 +744,9 @@ class Trigger(object):
 	def __init__(self, name):
 		self.name = name
 		self.type = '未分类'
+		self.parent_type = '未分类'
+		self.score = 0
+		self.id = hash(self)
 
 	def __str__(self):
 		return '[(触发词) 触发词:{}, 分类:{}]'.format(str(self.name), str(self.type))
@@ -682,10 +757,10 @@ class Trigger(object):
 	def toDict(self):
 		return {
 			'name': self.name,
-			'type': self.type
+			'type': self.type,
+			'parent_type': self.parent_type,
+			'score': self.score
 		}
-
-
 
 
 triggerManager = EventTriggerManager()

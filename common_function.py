@@ -1,0 +1,35 @@
+# 存储了常用的一些函数
+from opencc import OpenCC 
+
+
+# 繁体转简体
+cc = OpenCC('t2s')
+print('加载繁体->简体转换器')
+def t2s(string):
+	return cc.convert(string)
+
+
+# 计算编辑距离
+def levenshtein(string1,string2):
+    if len(string1) > len(string2):
+        string1,string2 = string2,string1
+    if len(string1) == 0:
+        return len(string2)
+    if len(string2) == 0:
+        return len(string1)
+    str1_length = len(string1) + 1
+    str2_length = len(string2) + 1
+    distance_matrix = [list(range(str2_length)) for x in range(str1_length)]
+    #print distance_matrix
+    for i in range(1,str1_length):
+        for j in range(1,str2_length):
+            deletion = distance_matrix[i-1][j] + 1
+            insertion = distance_matrix[i][j-1] + 1
+            substitution = distance_matrix[i-1][j-1]
+            if string1[i-1] != string2[j-1]:
+                substitution += 1
+            # print(min(insertion,deletion,substitution))
+            distance_matrix[i][j] = min(insertion,deletion,substitution)
+    #print distance_matrix
+    return distance_matrix[str1_length-1][str2_length-1]
+

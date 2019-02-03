@@ -3,7 +3,7 @@ import json
 from db_manager import dbManager as db
 from neo4j_manager import graph
 
-
+# 暂时还没有用上
 class TimeManager(object):
 	"""docstring for timeManager"""
 	def __init__(self):

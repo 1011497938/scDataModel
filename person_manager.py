@@ -43,6 +43,7 @@ class PersonManager(object):
 		self.event_manager = eventManager
 
 
+
 # 还需要一个年号对应的类
 class Person(object):
 	"""docstring for Person"""
@@ -59,9 +60,9 @@ class Person(object):
 		# 还要添加别名,籍贯等内容
 		# self.range = [-9999,9999]  # range	暂时不计算,还有很多时间也没有添加
 		
-		# self.index_year = bio_main_node['c_index_year']
-		# self.dy_nh_code = bio_main_node['c_dy_nh_code']          #在世始年
-		# self.index_year = bio_main_node['c_index_year']          #在世始年
+		self.index_year = bio_main_node['c_index_year']
+		self.dy_nh_code = bio_main_node['c_dy_nh_code']          #在世始年
+		self.index_year = bio_main_node['c_index_year']          #在世始年
 
 		self.tribe = bio_main_node['c_tribe']   #"部、族"
 
@@ -102,7 +103,7 @@ class Person(object):
 	def getYear2event(self):
 		self.getAllEvents()
 		year2event = {}
-		print(len(self.event_array))
+		# print(len(self.event_array))
 		for event in self.event_array:
 			if event.time_range[1]-event.time_range[0]<2:
 				# print('addd')
@@ -113,29 +114,29 @@ class Person(object):
 
 		for year in year2event.keys():
 			year2event[year] = sorted(year2event[year], key=lambda event: float(event.time_range[0])+float(event.sequence)*0.1) 
-		print(len(year2event.keys()))
+		# print(len(year2event.keys()))
 		return year2event
 
 
 	def getAllEvents(self):
-		if not self.has_all_events:
-			# 获得所有相关事件
-			person_id = self.id
-			has1 = has2 = has3 = has4 = True
-			# , person_id=person_id
-			for times in range(0,1):
-				if has1:
-					has1 = self.event_manager.loadRelationEvents(LIMIT = 10000,SKIP = 10000*times, person_id=person_id)   #person_id=3767 苏轼
-				if has2:
-					has2 = self.event_manager.loadPostOfficeEvents(LIMIT = 10000,SKIP = 10000*times, person_id=person_id)
-				if has3:
-					has3 = self.event_manager.loadTextEvents(LIMIT = 10000,SKIP = 10000*times, person_id=person_id)
-				if has4:
-					has4 = self.event_manager.loadEntryEvents(LIMIT = 10000,SKIP = 10000*times, person_id=person_id)
-				if not has1  and not has2 and not has3 and not has4:
-					break
-			self.has_all_events = True
-			self.event_array = sorted(self.event_array, key=lambda event: event.time_range[0]) 
+		# if not self.has_all_events:
+		# 	# 获得所有相关事件
+		# 	person_id = self.id
+		# 	has1 = has2 = has3 = has4 = True
+		# 	# , person_id=person_id
+		# 	for times in range(0,1):
+		# 		if has1:
+		# 			has1 = self.event_manager.loadRelationEvents(LIMIT = 10000,SKIP = 10000*times, person_id=person_id)   #person_id=3767 苏轼
+		# 		if has2:
+		# 			has2 = self.event_manager.loadPostOfficeEvents(LIMIT = 10000,SKIP = 10000*times, person_id=person_id)
+		# 		if has3:
+		# 			has3 = self.event_manager.loadTextEvents(LIMIT = 10000,SKIP = 10000*times, person_id=person_id)
+		# 		if has4:
+		# 			has4 = self.event_manager.loadEntryEvents(LIMIT = 10000,SKIP = 10000*times, person_id=person_id)
+		# 		if not has1  and not has2 and not has3 and not has4:
+		# 			break
+		# 	self.has_all_events = True
+		# 	self.event_array = sorted(self.event_array, key=lambda event: event.time_range[0]) 
 		return self.event_array
 
 	def bind_event(self, event):
@@ -146,10 +147,6 @@ class Person(object):
 			# if self.death_year != 9999:
 			# 	event.addTimeAndRange(self.death_year, '之前')
 
-			#通过事件来推人物的时间
-			# event_range = event.time_range
-			# if :
-			# 	pass
 
 	def __str__(self):
 		# return '[(人物) id:{}, 姓名:{}, range:{}]'.format(str(self.id), str(self.name), str(self.range))
@@ -167,7 +164,8 @@ class Person(object):
 			'id': self.id,
 			'name': self.name,
 			'birth_year': self.birth_year,
-			'death_year': self.death_year
+			'death_year': self.death_year,
+			# 'events': [event.id for event in self.event_array]
 			# 'time_range': self.range
 		}
 

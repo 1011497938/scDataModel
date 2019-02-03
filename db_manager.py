@@ -3,7 +3,7 @@ import re
 from opencc import OpenCC 
 # from py2neo import Graph,Node,Relationship,cypher
 import json
-
+from common_function import t2s
 
 class DbManager(object):
 	"""docstring for DbManager"""
@@ -12,7 +12,6 @@ class DbManager(object):
 		print("Opened database successfully")
 		self.c = conn.cursor()
 
-		self.cc = OpenCC('t2s') 
 		self.year2range = json.loads(open(r'./db_info/year2range.json', 'r', encoding='utf-8').read())
 
 		self.foreign_key = json.loads(open(r'./db_info/foreignkey5.json', 'r', encoding='utf-8').read())
@@ -63,14 +62,14 @@ class DbManager(object):
 		if  re.match('-{0,1}[0-9]+',str(text)):
 			return text
 		else:
-			return self.cc.convert(str(text))
+			return t2s(str(text))
 		
 
 		if len(text)<5:
 			if text in self._t2s_dict.keys():
 				return self._t2s_dict[text]
 			else:
-				new_text = self.cc.convert(text)
+				new_text = t2s(text)
 				self._t2s_dict[text] = new_text
 				# print(len(self._t2s_dict.keys()))
 				return new_text
